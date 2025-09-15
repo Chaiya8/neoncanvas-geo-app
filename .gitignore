@@ -1,0 +1,11 @@
+# Python virtual environment
+venv/
+*.venv
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Secret files
+.env
+secrets.toml

@@ -2,29 +2,33 @@ import pandas as pd
 from datetime import datetime
 import time
 from textblob import TextBlob
-#import openai
+import openai
 import os
-#import openai
-# openai.api_key = "sk-proj blah blah"
-#openai.api_key = os.getenv("OPENAI_API_KEY")
-#export OPENAI_API_KEY="sk-proj blah blah" 
-'''
+from openai import OpenAI
+import openai
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+import time
+
+
 def real_gpt_response(prompt):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Or use gpt-4 or gpt-4o if you have access
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        return response['choices'][0]['message']['content'].strip()
-    except Exception as e:
-        print(f"Error calling OpenAI: {e}")
-        return "API error"
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                store=True
+            )
+            return response.choices[0].message.content.strip()
+        except openai.RateLimitError:
+            print("Rate limit hit. Waiting 20 seconds...")
+            time.sleep(20)
+    return "API error due to rate limits"
+    
+RUNS_PER_PROMPT = 2
 
 '''
-
-RUNS_PER_PROMPT = 100
-
 # Placeholder for GPT (will replace this later)
 def fake_gpt_response(prompt):
     responses = {
@@ -38,7 +42,7 @@ def fake_gpt_response(prompt):
     for keyword, response in responses.items():
         if keyword.lower() in prompt.lower():
             return response
-    return "No strong recommendations found."
+    return "No strong recommendations found." '''
 
 # Check if client is mentioned
 def detect_mention(response_text, client_name):
@@ -77,9 +81,14 @@ def run_geo_analysis(client_name):
 
         # Simulate multiple runs for each prompt
         for _ in range(RUNS_PER_PROMPT):
-            response = fake_gpt_response(prompt)
+            response = real_gpt_response(prompt)
+            print("\n--- GPT Response ---")
+            print(response)
+            print("--------------------\n")
             mentioned = detect_mention(response, CLIENT_NAME)
             sentiment = get_sentiment_score(response)
+            #time.sleep(10)
+
 
             # Collect results
             if mentioned:
@@ -104,23 +113,36 @@ def run_geo_analysis(client_name):
             "timestamp": datetime.now()
         })
 
-    new_df = pd.DataFrame(aggregate_results)
+    #new_df = pd.DataFrame(aggregate_results)
 
     # If output CSV exists, append new data; otherwise, create it
-    if os.path.exists(OUTPUT_CSV):
+    new_df = pd.DataFrame(aggregate_results)
+
+    # Exit early if there are no new results to save
+    if new_df.empty:
+        print(f"No new prompts found for {CLIENT_NAME}. File not updated.")
+        return
+
+    try:
+        # Try to read the existing file
         existing_df = pd.read_csv(OUTPUT_CSV)
-        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        # If it doesn't exist or is empty, start with an empty DataFrame
+        existing_df = pd.DataFrame()
 
-        # Fix timestamp column to ensure sorting works
-        combined_df['timestamp'] = pd.to_datetime(combined_df['timestamp'], errors='coerce')
-        combined_df = combined_df.dropna(subset=['timestamp'])
+    # Combine old and new data
+    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
 
-        # Sort and keep only latest entries for each prompt
-        combined_df = combined_df.sort_values('timestamp').drop_duplicates(
-            subset=['client_name', 'prompt_id'], keep='last')
+    # Fix timestamp column to ensure sorting works
+    combined_df['timestamp'] = pd.to_datetime(combined_df['timestamp'], errors='coerce')
+    combined_df = combined_df.dropna(subset=['timestamp'])
 
-        combined_df.to_csv(OUTPUT_CSV, index=False)
-    else:
-        new_df.to_csv(OUTPUT_CSV, index=False)
+    # Sort and keep only the latest entries for each unique prompt
+    combined_df = combined_df.sort_values('timestamp').drop_duplicates(
+        subset=['client_name', 'prompt_id'], keep='last'
+    )
+
+    # Save the updated DataFrame
+    combined_df.to_csv(OUTPUT_CSV, index=False)
 
     print(f"✅ Saved aggregated GEO results to {OUTPUT_CSV}")

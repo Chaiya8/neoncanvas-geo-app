@@ -28,7 +28,7 @@ def parse_column(cell):
 all_prompts = []
 prompt_id = 1
 
-# Iterate through each client and generate prompts
+# iterate through each client and generate prompts
 for _, row in clients_df.iterrows():
     client = row["client_name"]
     city = row["city"]
@@ -40,7 +40,7 @@ for _, row in clients_df.iterrows():
     intents = ["with payment plans"] if has_payment else ["without insurance"]
     intents += ["affordable", "available this month"]
 
-    # For every combination of service, demo, intent, and template
+    # created every combination of service, demo, intent, and template
     for service, demographic, intent, template in itertools.product(services, demographics or [""], intents, templates):
         prompt_text = template.format(
             service=service,
@@ -60,7 +60,7 @@ for _, row in clients_df.iterrows():
         })
         prompt_id += 1
 
-# Save to CSV
+
 output_df = pd.DataFrame(all_prompts)
 output_df.to_csv("prompt_bank.csv", index=False)
 print(f"✅ Generated {len(all_prompts)} prompts for {len(clients_df)} clients.")
