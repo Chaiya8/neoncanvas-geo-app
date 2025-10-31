@@ -115,7 +115,8 @@ def run_geo_analysis(client_name):
 
     #new_df = pd.DataFrame(aggregate_results)
 
-    # If output CSV exists, append new data; otherwise, create it
+    #       NEW                                                    
+    
     new_df = pd.DataFrame(aggregate_results)
 
     # Exit early if there are no new results to save
@@ -124,10 +125,9 @@ def run_geo_analysis(client_name):
         return
 
     try:
-        # Try to read the existing file
+       
         existing_df = pd.read_csv(OUTPUT_CSV)
     except (FileNotFoundError, pd.errors.EmptyDataError):
-        # If it doesn't exist or is empty, start with an empty DataFrame
         existing_df = pd.DataFrame()
 
     # Combine old and new data
@@ -142,7 +142,6 @@ def run_geo_analysis(client_name):
         subset=['client_name', 'prompt_id'], keep='last'
     )
 
-    # Save the updated DataFrame
     combined_df.to_csv(OUTPUT_CSV, index=False)
 
     print(f"✅ Saved aggregated GEO results to {OUTPUT_CSV}")
