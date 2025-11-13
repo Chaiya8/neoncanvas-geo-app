@@ -93,9 +93,20 @@ def run_geo_analysis(client_name):
             "timestamp": datetime.now()
         })
 
+<<<<<<< HEAD
     # Save results
+=======
+    #new_df = pd.DataFrame(aggregate_results)
+
+    #       NEW                                                    
+    
+>>>>>>> 29bd776811db3c3e32d5bf73d1104e3a4ff0b589
     new_df = pd.DataFrame(aggregate_results)
     try:
+<<<<<<< HEAD
+=======
+       
+>>>>>>> 29bd776811db3c3e32d5bf73d1104e3a4ff0b589
         existing_df = pd.read_csv(OUTPUT_CSV)
     except (FileNotFoundError, pd.errors.EmptyDataError):
         existing_df = pd.DataFrame()
@@ -106,6 +117,10 @@ def run_geo_analysis(client_name):
     combined_df = combined_df.sort_values('timestamp').drop_duplicates(
         subset=['client_name', 'prompt_id'], keep='last'
     )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 29bd776811db3c3e32d5bf73d1104e3a4ff0b589
     combined_df.to_csv(OUTPUT_CSV, index=False)
     print(f"[DEBUG] ✅ Saved GEO results to {OUTPUT_CSV}")
 
@@ -113,3 +128,7 @@ if __name__ == "__main__":
     run_geo_analysis("Saddle Creek Orthodontics")
 
 
+<<<<<<< HEAD
+=======
+    print(f"✅ Saved aggregated GEO results to {OUTPUT_CSV}")
+>>>>>>> 29bd776811db3c3e32d5bf73d1104e3a4ff0b589
