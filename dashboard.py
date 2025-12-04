@@ -1,104 +1,153 @@
-import streamlit as st
-import pandas as pd
-from main import run_geo_analysis 
-from dotenv import load_dotenv
 import os
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
 
-# Load environment variables
+from main import run_geo_analysis, get_client_results, get_all_clients_from_results
+
+
+# Environment
 load_dotenv()
 ADMIN_USER = os.getenv("ADMIN_USER")
 ADMIN_PASS = os.getenv("ADMIN_PASS")
 
-st.set_page_config(page_title="GEO Dashboard", layout="wide")
+st.set_page_config(
+    page_title="GEO Dashboard",
+    layout="wide",
+    page_icon="📊"
+)
 
-# Login Page
+
+# Login Screen
 def login_page():
-    st.title("🔐 GEO Dashboard Login")
+    st.markdown("<h2 style='text-align:center;'>🔐 GEO Dashboard Login</h2>", unsafe_allow_html=True)
+
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-    login_btn = st.button("Login")
 
-    if login_btn:
+    if st.button("Login", use_container_width=True):
         if username == ADMIN_USER and password == ADMIN_PASS:
             st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.success("✅ Login successful")
             st.rerun()
         else:
-            st.error("❌ Invalid username or password")
+            st.error("Invalid username or password")
 
-#  Dashboard Page
+
+# Dashboard Page
 def dashboard():
-    st.title("📊 Generative Engine Optimization (GEO) Dashboard")
-    st.sidebar.write(f"👤 Logged in as: {st.session_state['username']}")
 
-    if st.sidebar.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
+    # ---------------- Sidebar ----------------
+    with st.sidebar:
+        st.markdown("### 👤 User")
+        st.success(f"Logged in as **{ADMIN_USER}**")
 
-    #  Safe load client list (clients.csv)
-    try:
-        client_df = pd.read_csv("clients.csv")  
-    except (FileNotFoundError, pd.errors.EmptyDataError):
-        client_df = pd.DataFrame(columns=["client_name"])
-
-    client_list = client_df['client_name'].dropna().unique().tolist()
-
-    #  Safe load GEO results (geo_results_aggregated.csv)
-    try:
-        df = pd.read_csv("geo_results_aggregated.csv")
-    except (FileNotFoundError,  pd.errors.EmptyDataError):
-        df = pd.DataFrame(columns=["client_name", "prompt_id", "prompt_text", "appearances",
-                                "appearance_percent", "avg_position", "avg_sentiment", "timestamp"])
-    
-    # Sidebar client selector
-    selected_client = st.sidebar.selectbox("Choose a client", client_list)
-
-    # Sidebar form to add new client
-    st.sidebar.markdown("### ➕ Add a New Client")
-    with st.sidebar.form("add_client_form"):
-        new_client_name = st.text_input("Client Name")
-        add_client = st.form_submit_button("Add Client")
-
-        if add_client and new_client_name.strip():
-            if new_client_name.strip() not in client_list:
-                new_row = {"client_name": new_client_name.strip()}
-                client_df = pd.concat([client_df, pd.DataFrame([new_row])], ignore_index=True)
-                client_df.to_csv("clients.csv", index=False)
-                st.success(f"✅ Added {new_client_name.strip()}")
-                st.rerun()
-            else:
-                st.warning("⚠️ That client already exists.")
-
-    # Run GEO Analysis button
-    st.sidebar.markdown("### Run GEO Analysis")
-    if st.sidebar.button(f"🔄 Run GEO for {selected_client}"):
-        with st.spinner("Running analysis..."):
-            run_geo_analysis(selected_client)
+        if st.button("Logout"):
+            st.session_state.clear()
             st.rerun()
-            df = pd.read_csv("geo_results_aggregated.csv")
-            st.success("✅ GEO analysis complete")
 
-    # Filter GEO results for selected client
-    filtered = df[df['client_name'] == selected_client]
-    st.markdown(f"### Results for: `{selected_client}`")
+        st.markdown("---")
+        st.markdown("### 🎯 Client Selection")
 
-    if filtered.empty:
-        st.info("No data available for this client yet. Click the Run button above to generate GEO results.")
-    else:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Prompts Tested", len(filtered))
-        col2.metric("Avg Appearance %", f"{filtered['appearance_percent'].mean():.2f}%")
-        col3.metric("Avg Sentiment", f"{filtered['avg_sentiment'].mean():.2f}")
+        clients = get_all_clients_from_results()
 
-        st.markdown("#### Prompt-Level Details")
+        if "clients.csv" in os.listdir("data"):
+            cdf = pd.read_csv("data/clients.csv")
+            listed_clients = cdf["client_name"].dropna().unique().tolist()
+            clients = sorted(set(clients + listed_clients))
+
+        selected_client = st.selectbox("Choose client:", clients)
+
+        st.markdown("### ➕ Add New Client")
+        with st.form("add_client_form", clear_on_submit=True):
+            newname = st.text_input("Client name")
+            if st.form_submit_button("Add"):
+                if newname.strip():
+                    df = pd.read_csv("data/clients.csv") if os.path.exists("data/clients.csv") else pd.DataFrame(columns=["client_name"])
+                    if newname not in df["client_name"].values:
+                        df = pd.concat([df, pd.DataFrame([{"client_name": newname}])], ignore_index=True)
+                        df.to_csv("data/clients.csv", index=False)
+                        st.success(f"Added {newname}")
+                        st.rerun()
+
+        st.markdown("---")
+        st.markdown("### 🔄 Run Audit")
+        if st.button(f"Run GEO for {selected_client}", use_container_width=True):
+            with st.spinner("Running analysis..."):
+                run_geo_analysis(selected_client)
+            st.success("GEO analysis complete")
+            st.rerun()
+
+    # ---------------- Main UI ----------------
+    st.markdown(f"<h1>📊 GEO Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown(f"### Brand Visibility & Sentiment Analysis for **{selected_client}**")
+
+    df = get_client_results(selected_client)
+    if df.empty:
+        st.info("No data yet. Run GEO analysis to populate results.")
+        return
+
+    # Keep latest rows per prompt
+    df_latest = (
+        df.sort_values("timestamp")
+          .drop_duplicates(subset=["prompt_id"], keep="last")
+    )
+
+    # Summary
+    last_ts = pd.to_datetime(df["timestamp"]).max()
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Prompts Tested", len(df_latest))
+    c2.metric("Avg Appearance %", f"{df_latest['appearance_percent'].mean():.2f}%")
+    c3.metric("Avg Sentiment", f"{df_latest['avg_sentiment'].mean():.2f}")
+    c4.metric("Last Audit", str(last_ts).split(".")[0])
+
+    st.markdown("---")
+
+    # ---------------- Charts ----------------
+    st.subheader("📊 Appearance Ranking by Prompt")
+
+    chart = df_latest[["prompt_id", "appearance_percent"]].sort_values("appearance_percent")
+    st.bar_chart(chart, x="prompt_id", y="appearance_percent")
+
+    st.markdown("---")
+
+    tabs = st.tabs(["📄 Prompt Overview", "💬 AI Responses"])
+
+    # ---------------- Overview Tab ----------------
+    with tabs[0]:
+        st.subheader("Prompt Results")
+        search = st.text_input("Search prompts")
+
+        show_df = df_latest.copy()
+        if search.strip():
+            show_df = show_df[show_df["prompt_text"].str.contains(search, case=False, na=False)]
+
         st.dataframe(
-            filtered[['prompt_text', 'appearance_percent', 'avg_position', 'avg_sentiment']]
-            .sort_values(by='appearance_percent', ascending=False),
+            show_df[["prompt_id", "prompt_text", "appearance_percent", "avg_position", "avg_sentiment"]],
+            hide_index=True,
             use_container_width=True
         )
 
-        st.caption("Data from geo_results_aggregated.csv")
+        dl = show_df.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇️ Download CSV", dl, f"{selected_client}_results.csv", "text/csv")
+
+    # ---------------- Responses Tab ----------------
+    with tabs[1]:
+        st.subheader("Model Responses (per prompt)")
+
+        for _, row in df_latest.iterrows():
+            with st.expander(f"Prompt {row['prompt_id']}: {row['prompt_text'][:60]}..."):
+                st.markdown("**Prompt Text**")
+                st.info(row["prompt_text"])
+
+                responses = str(row["raw_responses"]).split("|||")
+                for i, r in enumerate(responses, start=1):
+                    st.markdown(f"**Run {i} Response:**")
+                    st.write(r.strip())
+                    st.markdown("---")
+
+
 
 # App Entry Point
 if "logged_in" not in st.session_state:

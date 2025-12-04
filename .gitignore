@@ -1,11 +1,27 @@
-# Python virtual environment
+# -------------------------
+# PYTHON / VENV
+# -------------------------
 venv/
-*.venv
-
-# Python cache files
+.venv/
+*.venv/
 __pycache__/
 *.pyc
 
-# Secret files
+# -------------------------
+# ENV / SECRETS
+# -------------------------
 .env
 secrets.toml
+
+# -------------------------
+# LOCAL DATA (never commit client data)
+# -------------------------
+data/
+*.db
+*.csv
+
+# -------------------------
+# EDITOR / SYSTEM FILES
+# -------------------------
+.DS_Store
+Thumbs.db

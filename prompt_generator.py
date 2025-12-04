@@ -1,11 +1,21 @@
-import pandas as pd
+# prompt_generator.py
+from pathlib import Path
 import itertools
+import pandas as pd
 
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
 
-# Load client data
-clients_df = pd.read_csv("clients.csv")
+CLIENTS_CSV = DATA_DIR / "clients.csv"
+PROMPT_BANK = DATA_DIR / "prompt_bank.csv"
 
-# Prompt templates
+if not CLIENTS_CSV.exists():
+    raise FileNotFoundError(f"{CLIENTS_CSV} not found")
+
+clients_df = pd.read_csv(CLIENTS_CSV)
+
+# ---------- your existing template logic ----------
 templates = [
     "Who is the best {service} provider in {city}?",
     "Where can I find {service} for {demographic} in {city}?",
@@ -14,39 +24,32 @@ templates = [
     "What are the top-rated {service} options in {city}?"
 ]
 
-# Define demographic and intent categories
-demographic_options = ["for teens", "for adults", "for kids"]
-intent_options = ["with payment plans", "without insurance", "affordable", "available this month"]
-
-# Helper to extract variations from string columns
 def parse_column(cell):
     if pd.isna(cell):
         return []
-    return [item.strip() for item in str(cell).split(";")]
+    return [item.strip() for item in str(cell).split(";") if item.strip()]
 
-# Build prompts
 all_prompts = []
 prompt_id = 1
 
-# iterate through each client and generate prompts
 for _, row in clients_df.iterrows():
-    client = row["client_name"]
-    city = row["city"]
-    services = parse_column(row["services_offered"])
-    demographics = parse_column(row.get("demographic_focus", ""))
-    has_payment = row.get("has_payment_plans", "").lower() == "yes"
+    client = row["client_name"].strip()
+    city = str(row.get("city", "")).strip() or "my area"
+    services = parse_column(row.get("services_offered", ""))
+    demographics = parse_column(row.get("demographic_focus", "")) or [""]
+    has_payment = str(row.get("has_payment_plans", "")).lower() == "yes"
 
-    # Build intent list per client
     intents = ["with payment plans"] if has_payment else ["without insurance"]
     intents += ["affordable", "available this month"]
 
-    # created every combination of service, demo, intent, and template
-    for service, demographic, intent, template in itertools.product(services, demographics or [""], intents, templates):
+    for service, demographic, intent, template in itertools.product(
+        services, demographics, intents, templates
+    ):
         prompt_text = template.format(
             service=service,
             city=city,
             demographic=demographic,
-            intent=intent
+            intent=intent,
         ).replace("  ", " ").strip()
 
         all_prompts.append({
@@ -56,11 +59,10 @@ for _, row in clients_df.iterrows():
             "city": city,
             "service": service,
             "demographic": demographic,
-            "intent": intent
+            "intent": intent,
         })
         prompt_id += 1
 
-
 output_df = pd.DataFrame(all_prompts)
-output_df.to_csv("prompt_bank.csv", index=False)
-print(f"✅ Generated {len(all_prompts)} prompts for {len(clients_df)} clients.")
+output_df.to_csv(PROMPT_BANK, index=False)
+print(f"✅ Generated {len(all_prompts)} prompts for {len(clients_df)} clients at {PROMPT_BANK}")
