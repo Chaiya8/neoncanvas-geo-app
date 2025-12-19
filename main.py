@@ -152,7 +152,7 @@ def save_results_to_db(aggregate_results: list[dict]):
         ))
 
     conn.commit()
-    conn.close()
+    conn.close()   
 
 def get_client_results(client_name: str) -> pd.DataFrame:
     conn = get_db_connection()
